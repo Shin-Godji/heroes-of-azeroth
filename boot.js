@@ -31,7 +31,7 @@
 const BR_RATIO = 5.0;
 const GZ_RATIO = 3.7; // 80 MB wasm / 21.9 MB gzip
 const READY_TIMEOUT_MS = 20000;
-const PREFETCH_CONCURRENCY = 8;
+let PREFETCH_CONCURRENCY = 8; // config.json "prefetchConcurrency" raises it for a high-latency static host
 const WASM_CACHE = 'hoa-wasm';
 
 // Where this deployment's files live. Defaults serve the dev page from its own origin; a hosting
@@ -53,6 +53,8 @@ async function applyConfig() {
   const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
   if (str(cfg.wasm)) WASM_URL = new URL(str(cfg.wasm), location.href).href;
   // Relative values resolve against the page (a project site lives under /<repo>/, not at the origin root).
+  const pc = Number(cfg.prefetchConcurrency);
+  if (Number.isInteger(pc) && pc >= 1 && pc <= 64) PREFETCH_CONCURRENCY = pc;
   if (str(cfg.data)) DATA_BASE = new URL(str(cfg.data), location.href).href.replace(/[/]+$/, '');
   // The Rust side reads these once at start (benilla_formats::web::data_base, webenv).
   if (DATA_BASE !== '/data') window.__wenilla_data_base = DATA_BASE;
