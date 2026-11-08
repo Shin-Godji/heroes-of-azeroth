@@ -1,15 +1,13 @@
-# Heroes of Azeroth: browser playtest
+# Heroes of Azeroth
 
-A private-style technical playtest of **Heroes of Azeroth**, a roguelike deck-builder set in the world of Warcraft,
-running in the browser (Rust + Bevy compiled to WebAssembly, WebGPU).
+A roguelike deck-builder in the world of Warcraft, playable in the browser (Rust + Bevy compiled to WebAssembly, WebGPU).
+Play it at https://shin-godji.github.io/heroes-of-azeroth/
 
-- Play: https://shin-godji.github.io/heroes-of-azeroth/
-- Needs a desktop browser with WebGPU (current Chrome or Edge).
-- This is only a **test slice** (the Human / Elwynn path), not the full game. Other races and zones will show missing content.
-- First load downloads about 250 MB; later visits reuse the browser cache.
+This repository is the published build of the full game: eight races, every class and specialization, seven maps and
+their encounters, cards, effects, music and ambience. The game data ships as lazy gzip bundles (`bundles/`, loaded when a
+race or map needs them), the engine as a gzipped wasm (`b/`), the opening music and artwork beside the page (`hoa/`).
 
-This repository holds only the built site (page scripts, the WebAssembly build and the data files the test slice reads). The game's source
-code is not in this repository.
+Requirements: a recent desktop Chrome or Edge with WebGPU. The first visit downloads the engine and the title assets
+(about 75 MB), each map a further 15-70 MB; later visits are served from the browser cache.
 
-Unofficial fan project. Not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft and related names are
-trademarks of Blizzard Entertainment, Inc.
+World of Warcraft and its art, music and sounds belong to Blizzard Entertainment. This is an unofficial fan project.

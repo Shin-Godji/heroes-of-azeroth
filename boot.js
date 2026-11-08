@@ -41,6 +41,7 @@ const WASM_CACHE = 'hoa-wasm';
 // The wasm and data URLs may be on another origin (a CDN bucket, with CORS for GET and HEAD).
 let WASM_URL = new URL('./wenilla_bg.wasm', import.meta.url).href;
 let DATA_BASE = '/data';
+let CFG = {};
 
 async function applyConfig() {
   let cfg = {};
@@ -50,6 +51,7 @@ async function applyConfig() {
   } catch (_) {
     /* no config.json: the defaults above are the dev-server layout */
   }
+  CFG = cfg;
   const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
   if (str(cfg.wasm)) WASM_URL = new URL(str(cfg.wasm), location.href).href;
   // Relative values resolve against the page (a project site lives under /<repo>/, not at the origin root).
@@ -75,7 +77,24 @@ export async function boot(init, opts = {}) {
   const skipPrefetch = q.get('boottrace') === '1' || q.get('noprefetch') === '1';
   installProgressHook(ui, skipPrefetch);
 
-  const prefetch = skipPrefetch
+  // Optional asset bundles (web/bundles.js): fewer, larger requests for a high-latency static host. A missing
+  // or failed bundle just means the individual files are fetched as before, and the old boot prefetch runs instead.
+  let bundleSetup = null;
+  if (CFG.bundles && q.get('bundles') !== '0' && !skipPrefetch) {
+    try {
+      const { setupBundles } = await import('./bundles.js');
+      bundleSetup = await setupBundles({
+        manifestUrl: new URL(String(CFG.bundles), location.href).href,
+        dataBase: DATA_BASE,
+        onProgress: (done, total) => ui.setData(Math.round(done / 1048576), Math.round(total / 1048576)),
+      });
+    } catch (e) {
+      console.warn('bundles unavailable:', e && e.message ? e.message : e);
+    }
+  }
+  const prefetch = bundleSetup
+    ? bundleSetup.blocking.catch(() => ui.setData(0, 0))
+    : skipPrefetch
     ? Promise.resolve()
     : prefetchManifest('./boot-manifest.json', (done, total) => ui.setData(done, total)).catch(
         () => ui.setData(0, 0)
@@ -239,7 +258,8 @@ async function prefetchManifest(manifestUrl, onProgress) {
 function installProgressHook(ui, skipPrefetch) {
   let prefetching = false;
   const startWorldPrefetch = () => {
-    if (skipPrefetch || prefetching) return;
+    // With asset bundles the world read-set arrives in bundles; individual prefetches would only duplicate it.
+    if (skipPrefetch || prefetching || window.__hoa_bundles) return;
     prefetching = true;
     const corner = createCornerLine();
     prefetchManifest('./world-manifest.json', (done, total) =>
@@ -249,11 +269,14 @@ function installProgressHook(ui, skipPrefetch) {
       .finally(() => corner.remove());
   };
   window.__wenilla_progress = (stage) => {
+    // race:<id>, zone:<id>, zone-next:<id> from the game (hoa::asset_signals) drive the asset bundles (web/bundles.js).
+    if (window.__hoa_bundles && stage !== 'ready') window.__hoa_bundles.signal(stage);
     if (stage === 'startup') ui.setStage('Raising the world…');
     // The game's own loading screen is up: start the world read-set now, but leave the overlay.
     else if (stage === 'loading') startWorldPrefetch();
     else if (stage === 'ready') {
       ui.hide();
+      if (window.__hoa_bundles && window.__hoa_bundles.ready) window.__hoa_bundles.ready();
       startWorldPrefetch();
     }
   };
